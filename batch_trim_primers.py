@@ -29,6 +29,6 @@ for r1 in r1_files:
         r1, r2
     ]
     
-    print(f"🔧 Trimming primers for sample: {sample}")
+    print(f"Currently processing sample: {sample}")
     subprocess.run(cmd, check=True)
 
