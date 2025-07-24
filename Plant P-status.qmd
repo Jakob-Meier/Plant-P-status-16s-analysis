@@ -112,6 +112,11 @@ ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE),
                sample_data(metadata), 
                tax_table(taxa))
 
+dna <- Biostrings::DNAStringSet(taxa_names(ps))
+names(dna) <- taxa_names(ps)
+ps <- merge_phyloseq(ps, dna)
+taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+
 psfix <- tax_fix(ps, 
                  min_length = 4,
                  unknowns = c("Incertae Sedis", ""),
@@ -125,6 +130,6 @@ psfix %>%
     suffix_rank = "classified"
   )
 
-saveRDS(ps, file = "C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/ps_obj.rds")
+saveRDS(psfix, file = "C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/ps_obj.rds")
 
 ```
