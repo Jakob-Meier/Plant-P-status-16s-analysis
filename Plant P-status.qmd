@@ -1,0 +1,130 @@
+---
+title: "Plant P-status"
+---
+
+## 
+
+```{r}
+install.packages("devtools")
+install.packages("BiocManager")
+BiocManager::install("dada2", force = TRUE)
+BiocManager::install("phyloseq", force = TRUE)
+BiocManager::install("Biostrings", force = TRUE)
+install.packages("ggplot2")
+install.packages("remotes")
+remotes::install_github("kasperskytte/ampvis2", Ncpus = 6)
+install.packages("dplyr")
+install.packages("tidyverse")
+install.packages(
+  "microViz",
+  repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
+)
+```
+
+```{r}
+
+library(dplyr)
+library(tidyverse)
+library(dada2)
+path <- "C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/PlantP_shortreads/trimmed" # CHANGE ME to the directory containing the fastq files after unzipping.
+list.files(path)
+
+Samples <- sort(list.files(path, pattern="fastq.gz", full.names = FALSE))
+list(Samples)
+
+
+
+### Remove the first part of the filename that we aren't going to use, and separate forward and reverse reads.
+
+fnFs <- sort(list.files(path, pattern="_1.fastq.gz", full.names = TRUE))
+fnRs <- sort(list.files(path, pattern="_2.fastq.gz", full.names = TRUE))
+
+sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 5)
+
+#Quality assesment - The samples were sequenced on the MiSeq 2x300bp platform, and with the forward and reverse primers trimmed from the reads they are around ~281-282bp.
+
+
+
+plotQualityProfile(fnFs[1:4])
+plotQualityProfile(fnRs[1:2])
+
+
+```
+
+```{r}
+###Quality looks good for forwards reads, so we only trim the last 10 nucleotides in the next step. The reverse plots drop below an average Q30 at around position 150-160, so we will trim to a length of around 165bp, ensuring there's still enough overlap for later merging.
+
+filtFs <- file.path(path, "filtered", paste0(sample.names, "_F_filt.fastq.gz"))
+filtRs <- file.path(path, "filtered", paste0(sample.names, "_R_filt.fastq.gz"))
+names(filtFs) <- sample.names
+names(filtRs) <- sample.names
+
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(271,165),
+                     maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE,
+                     compress=TRUE, multithread=FALSE) 
+head(out)
+
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+
+dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
+dadaRs <- dada(filtRs, err=errR, multithread=TRUE)
+
+mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose=TRUE)
+# Inspect the merger data.frame from the first sample
+head(mergers[[1]])
+
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab)
+
+table(nchar(getSequences(seqtab)))
+
+```
+
+```{r}
+seqtab2 <- seqtab[,nchar(colnames(seqtab)) %in% 369:398]
+
+seqtab.nochim <- removeBimeraDenovo(seqtab2, method="consensus", multithread=TRUE, verbose=TRUE)
+
+sum(seqtab.nochim)/sum(seqtab)
+
+taxa <- assignTaxonomy(seqtab.nochim, "C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Fungi_SynCom Project/silva_nr99_v138.2_toGenus_trainset.fa.gz", multithread=TRUE)
+
+
+```
+
+```{r}
+#Now we import the processed reads into phyloseq for community analysis
+library(phyloseq)
+library(Biostrings)
+library(ggplot2)
+library(ampvis2)
+library(tidyverse)
+library(microViz)
+
+metadata <- read.csv2("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Metadata_PlantP.csv") %>%
+   tibble::column_to_rownames("sample_name")
+#Making sure the sample names match with metadata:
+all(row.names(metadata) == row.names(seqtab.nochim))
+
+#Final creation of phyloseq object, convert taxa names from sequences to ASVs, and utilizing the Microviz package to do some housekeeping on the nomenclature of taxa with only high level classification.
+ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
+               sample_data(metadata), 
+               tax_table(taxa))
+
+psfix <- tax_fix(ps, 
+                 min_length = 4,
+                 unknowns = c("Incertae Sedis", ""),
+                 sep = " ", anon_unique = TRUE,
+                 suffix_rank = "classified" )
+psfix %>%
+  tax_fix(
+    min_length = 4,
+    unknowns = c("Incertae Sedis"),
+    sep = " ", anon_unique = TRUE,
+    suffix_rank = "classified"
+  )
+
+saveRDS(ps, file = "C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/ps_obj.rds")
+
+```
