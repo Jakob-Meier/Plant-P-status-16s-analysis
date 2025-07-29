@@ -5,26 +5,47 @@ format: html
 
 ```{r}
 
-install.packages("devtools")
-install.packages("BiocManager")
 library(BiocManager)
-BiocManager::install("phyloseq", force = TRUE)
-install.packages("ggplot2")
-install.packages("remotes")
 library(remotes)
-remotes::install_github("kasperskytte/ampvis2", Ncpus = 6)
-
 library(phyloseq)
 library(ggplot2)
 library(ampvis2)
-
-#alpha diversity packages
-install.packages("vegan")
-install.packages("rbiom")
 library(rbiom)
 library(vegan)
+library(microViz)
+library(patchwork)
+library(corncob)
+library(DT)
+library(ggraph)
+library(ggtext)
+library(microbiome)
+library(ggpubr)
 
+sessionInfo()
 
+```
+
+```{r}
+install.packages("devtools")
+install.packages("BiocManager")
+remotes::install_github("kasperskytte/ampvis2", Ncpus = 6)
+install.packages("vegan")
+install.packages("rbiom")
+BiocManager::install("phyloseq", force = TRUE)
+install.packages("ggplot2")
+install.packages("remotes")
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install(c("microbiome", "ComplexHeatmap"), update = FALSE)
+
+install.packages("ggtext") 
+install.packages("ggraph") 
+install.packages("DT")
+install.packages("corncob")
+install.packages(
+  "microViz",
+  repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
+)
+install.packages("patchwork")
 ```
 
 ```{r}
@@ -48,16 +69,48 @@ amp_subset_samples(Treatment %in% "Mock") %>%
 
 ```{r}
 #| label: Ordination plots
-d %>%
-  amp_subset_samples(Timepoint %in% c("T1")) %>%
+
+Main_ordination <- d %>%
+  amp_subset_samples(Treatment %in% c("P30_+_0.075_M_foliar_P", "P30_+_0.15_M_foliar_P", "P30", "P60")) %>%
   amp_ordinate(distmeasure = "bray",
                filter_species = 0.1,
                type = "pcoa",
                sample_color_by = "Treatment",
+               sample_colorframe = TRUE,
                transform = "hellinger")
 
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Main_ordination.png", width = 10, height = 8, bg = 'white', print(Main_ordination))
+```
+
+```{r}
+time_ordination <- d %>%
+  amp_subset_samples(Treatment %in% c("P30", "P60", "P30_-_early_harvest", "P60_-_early_harvest")) %>%
+  amp_subset_samples(!Treatment %in% "Mock") %>%
+  amp_ordinate(distmeasure = "bray",
+               filter_species = 0.1,
+               type = "pcoa",
+               sample_color_by = "Treatment",
+               sample_colorframe = TRUE,
+               transform = "hellinger")
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/time_ordination.png", width = 10, height = 8, bg = 'white', print(time_ordination))
+```
+
+```{r}
+Full_ordination <- d %>%
+  amp_subset_samples(!Treatment %in% c("Mock", "P30_no_plant")) %>%
+  amp_ordinate(distmeasure = "bray",
+               filter_species = 0.1,
+               type = "pcoa",
+               sample_color_by = "Treatment",
+               sample_colorframe = TRUE,
+               transform = "hellinger")
+
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Full_ordination.png", width = 10, height = 8, bg = 'white', print(Full_ordination))
+```
+
+```{r}
 d %>%
-  amp_subset_samples(Treatment %in% c("P30_+_0.075_M_foliar_P", "P30_+_0.15_M_foliar_P", "P30", "P60")) %>%
+  amp_subset_samples(Treatment %in% c("P30", "P30_no_SG")) %>%
   amp_ordinate(distmeasure = "bray",
                filter_species = 0.1,
                type = "pcoa",
@@ -74,7 +127,21 @@ Mainheatmap <- d %>%
               tax_aggregate = "Genus",
               showRemainingTaxa=TRUE,
               tax_show = 25)
-ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Main_heatmap.png", width = 13, height = 8, print(Mainheatmap_))
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Main_heatmap.png", width = 13, height = 8, print(Mainheatmap))
+```
+
+h
+
+```{r}
+
+Mainheatmap_averaged <- d %>%
+  amp_subset_samples(Treatment %in% c("P30_+_0.075_M_foliar_P", "P30_+_0.15_M_foliar_P", "P30", "P60", "P30_no_plant")) %>%
+  amp_subset_samples(Timepoint %in% "T2") %>%
+  amp_merge_replicates(merge_var = "Treatment", round = NULL) %>%
+  amp_heatmap(tax_aggregate = "Genus",
+              showRemainingTaxa=TRUE,
+              tax_show = 25)
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Main_heatmap_averaged_bulk.png", width = 10, height = 8, print(Mainheatmap_averaged))
 ```
 
 ```{r}
@@ -97,6 +164,16 @@ earlyheatmap <- d %>%
               showRemainingTaxa=TRUE,
               tax_show = 25)
 ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/early_heatmap.png", width = 13, height = 8, print(earlyheatmap))
+```
+
+```{r}
+P60_heatmap <- d %>%
+  amp_subset_samples(Treatment %in% c("P60_-_early_harvest", "P60")) %>%
+  amp_heatmap(facet_by = "Treatment",
+              tax_aggregate = "Genus",
+              showRemainingTaxa=TRUE,
+              tax_show = 25)
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/P60_heatmap.png", width = 13, height = 8, print(P60_heatmap))
 ```
 
 ```{r}
@@ -144,6 +221,22 @@ mainboxplot2 <- d %>%
 ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Mainboxplot2.png", width = 13, height = 8, print(mainboxplot))
 ```
 
+a
+
+```{r}
+#| label: BOXPLOTS
+Bulkboxplot2 <- d %>%
+  amp_subset_samples(Treatment %in% c("P30", "P30_no_plant")) %>%
+  amp_subset_samples(Timepoint %in% "T2") %>%
+  amp_boxplot(group_by = "Treatment",
+              tax_aggregate = "Genus",
+              tax_show = 10,
+              tax_add = "Genus",
+              plot_log = TRUE,
+  )
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/bulkboxplot2.png", width = 13, height = 8, print(Bulkboxplot2))
+```
+
 ```{r}
 
 tax_vector_P <- c("Pseudomonas", "Pantoea", "Massilia", "Paraburkholderia", "Beijerinckia", "Microbacterium", "Arthrobacter", "Trinickia", "Burkholderia", "Erwinia", "Enterobacteriaceae", "Bacilliaceae", "Paenibacillus", "Streptomyces", "Rhizobiaceae", "Burkholderiaceae")
@@ -166,25 +259,7 @@ ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P s
 
 ```{r}
 
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-BiocManager::install(c("phyloseq", "microbiome", "ComplexHeatmap"), update = FALSE)
 
-install.packages("ggtext") 
-install.packages("ggraph") 
-install.packages("DT")
-install.packages("corncob")
-install.packages(
-  "microViz",
-  repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
-)
-install.packages("patchwork")
-
-library(microViz)
-library(patchwork)
-library(corncob)
-library(DT)
-library(ggraph)
-library(ggtext)
 
 psviz <- subset_samples(ps, Treatment %in% c("P30", "P30_+_0.15_M_foliar_P"))
 psviz <- subset_samples(ps, Timepoint %in% "T2")
@@ -277,6 +352,37 @@ alphadiv <- d %>%
     plot_group_by = "Timepoint")
 
 ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Alphadiv_t1_bulk.png", width = 10, height = 8, dpi=800, print(alphadiv))
+
+```
+
+```{r}
+#| label: Boxplot for select genera
+
+
+ps_genus <- tax_glom(ps, taxrank = "Genus")
+ps_rel <- transform_sample_counts(ps_genus, function(x) x / sum(x))
+ps_melt <- psmelt(ps_rel)
+
+target_genera <- c("Massilia", "Burkholderia-Caballeronia-Paraburkholderia", "Dyella", "Noviherbaspirillum", "Leifsonia", "Pseudomonas") 
+target_treatments <- c("P30", "P30_+_0.075_M_foliar_P", "P30_+_0.15_M_foliar_P", "P60", "P30_no_plant")
+
+# Filter data
+ps_filtered <- ps_melt %>%
+  filter(Genus %in% target_genera, Treatment %in% target_treatments)
+
+# Plot
+Boxplot_genus <- ggplot(ps_filtered, aes(x = Treatment, y = Abundance, fill = Treatment)) +
+  geom_boxplot() +
+  facet_wrap(~ Genus, scales = "free_y") +
+  theme_bw() +
+  labs(title = "Pattern of abundance for select genera",
+       y = "Relative Abundance",
+       x = "Treatment") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.text = element_text(face = "bold"))
+
+
+ggsave("C:/Users/KCL523/OneDrive - University of Copenhagen/DATA/Klara Plant P status/Boxplot_rel_noplant.png", width = 14, height = 6, bg='white', dpi=800, print(Boxplot_genus))
 
 ```
 
